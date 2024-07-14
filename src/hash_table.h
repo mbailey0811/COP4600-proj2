@@ -2,6 +2,7 @@
 #define HASH_TABLE_H
 
 #include <stdint.h>
+#include <stdlib.h>
 
 //hash structure given in the instructions
 typedef struct hash_struct {
@@ -13,7 +14,7 @@ typedef struct hash_struct {
 
 //Declare functions for hash_table.c:
 // hash comes from the given Jenkins method
-unt32_t hash(const char *key);
+uint32_t hash(const uint8_t* key, size_t length);
 
 // insert, delete, search
 // standard helper functions

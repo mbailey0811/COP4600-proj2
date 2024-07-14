@@ -57,7 +57,7 @@ void insert(const char *key, uint32_t value) {
 
     //fill in the struct for the new entry
     newEntry->hash = hashValue;
-    strcpy(newEntry->name, key, 50);
+    strcpy(newEntry->name, key);
     newEntry->salary = value;
     newEntry->next = NULL;
 
@@ -67,7 +67,7 @@ void insert(const char *key, uint32_t value) {
     if (previous == NULL) {
         head = newEntry;
     } else {
-        previous->next = newEntry
+        previous->next = newEntry;
     }
 
     //release the write lock
@@ -93,7 +93,7 @@ void delete(const char *key) {
                 head = temp->next;
             } else {
                 //otherwise, just skip this node in the list
-                previous->next = current->next;
+                previous->next = temp->next;
             }
             //free the memory and exit loop
             free(temp);
@@ -130,18 +130,3 @@ hashRecord* search(const char *key) {
     return NULL;
 
 }
-
-This function searches for a
- key-data pair in the hash table
-  and returns the value, if it
-   exists. To search for a key-data
-    pair, the function first computes 
-    the hash value of the key acquires
-     a reader lock. Then, it searches 
-     the linked list for the key. If 
-     the key is found, it returns the 
-     value. Otherwise, it returns NULL. 
-     Finally, it releases the read lock 
-     and returns. The caller should then 
-     print the record or "No Record Found" 
-     if the return is NULL.

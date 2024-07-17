@@ -11,8 +11,8 @@ This project implements a concurrent hash table using Jenkins's one_at_a_time ha
 ## Tasks
 
 ### Megan
-- [x] **Review & Refine Existing Code**: Ensure the current implementation in `hash_table.c` and `hash_table.h` is correct and efficient. Address any issues found during the review.
-- [x] **Locks Implementation (Guidance)**: Oversee and guide the implementation of lock functions by other team members.
+- [ ] **Review & Refine Existing Code**: Ensure the current implementation in `hash_table.c` and `hash_table.h` is correct and efficient. Address any issues found during the review.
+- [ ] **Locks Implementation (Guidance)**: Oversee and guide the implementation of lock functions by other team members.
 
 ### Faramarz
 - [ ] **Locks Implementation**:

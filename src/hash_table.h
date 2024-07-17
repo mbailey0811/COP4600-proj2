@@ -22,5 +22,7 @@ void insert(const char *key, uint32_t value);
 void delete(const char *key);
 hashRecord* search(const char *key);
 
+// added by Faramarz
+hashRecord* get_head(); // Function to get the head of the linked list
 
 #endif

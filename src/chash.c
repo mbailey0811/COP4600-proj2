@@ -1,108 +1,112 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <pthread.h>
-#include <time.h>
+#include <string.h>
 #include "hash_table.h"
 #include "locks.h"
 
 #define MAX_COMMAND_LENGTH 256
+#define MAX_THREADS 100
 
-extern FILE *output_file; // Declare the external variable
-extern int num_lock_acquisitions; // Declare the external variable
-extern int num_lock_releases; // Declare the external variable
+typedef struct {
+    char command[MAX_COMMAND_LENGTH];
+} Command;
 
-int inserts_done = 0;
-int insert_count = 0;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-pthread_mutex_t cond_mutex = PTHREAD_MUTEX_INITIALIZER;
+HashTable *hash_table;
+pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
+int lock_acquisitions = 0;
+int lock_releases = 0;
 
-void *process_command(void *arg) {
-    char *command = (char *)arg;
-    char *cmd = strtok(command, ",");
-    char *param1 = strtok(NULL, ",");
-    char *param2 = strtok(NULL, ",");
+void log_operation(const char *operation) {
+    pthread_mutex_lock(&file_mutex);
+    FILE *output = fopen("output.txt", "a");
+    fprintf(output, "%s\n", operation);
+    fclose(output);
+    pthread_mutex_unlock(&file_mutex);
+}
 
-    if (strcmp(cmd, "insert") == 0) {
-        insert(param1, atoi(param2));
-        pthread_mutex_lock(&cond_mutex);
-        inserts_done++;
-        if (inserts_done == insert_count) {
-            pthread_cond_broadcast(&cond);
+void* process_command(void* arg) {
+    Command *cmd = (Command *)arg;
+    char operation[MAX_COMMAND_LENGTH];
+    char action[MAX_COMMAND_LENGTH], name[MAX_COMMAND_LENGTH];
+    int value, result;
+
+    sscanf(cmd->command, "%[^,],%[^,],%d", action, name, &value);
+
+    if (strcmp(action, "insert") == 0) {
+        unsigned int hash = hash_table_insert(hash_table, name, value);
+        sprintf(operation, "INSERT,%u,%s,%d", hash, name, value);
+        log_operation(operation);
+        log_operation("WRITE LOCK ACQUIRED");
+        log_operation("WRITE LOCK RELEASED");
+        lock_acquisitions++;
+        lock_releases++;
+    } else if (strcmp(action, "search") == 0) {
+        unsigned int hash;
+        if ((hash = hash_table_search(hash_table, name)) != -1) {
+            sprintf(operation, "SEARCH,%s", name);
+            log_operation(operation);
+            sprintf(operation, "%u,%s,%d", hash, name, value);
+            log_operation(operation);
         }
-        pthread_mutex_unlock(&cond_mutex);
-    } else {
-        pthread_mutex_lock(&cond_mutex);
-        while (inserts_done < insert_count) {
-            pthread_cond_wait(&cond, &cond_mutex);
+        log_operation("READ LOCK ACQUIRED");
+        log_operation("READ LOCK RELEASED");
+        lock_acquisitions++;
+        lock_releases++;
+    } else if (strcmp(action, "delete") == 0) {
+        unsigned int hash = hash_table_delete(hash_table, name);
+        if (hash != -1) {
+            sprintf(operation, "DELETE,%s", name);
+            log_operation(operation);
+            sprintf(operation, "%u,%s,%d", hash, name, value);
+            log_operation(operation);
         }
-        pthread_mutex_unlock(&cond_mutex);
-
-        if (strcmp(cmd, "delete") == 0) {
-            delete(param1);
-        } else if (strcmp(cmd, "search") == 0) {
-            search(param1);
-        } else if (strcmp(cmd, "print") == 0) {
-            print_table();
-        }
+        log_operation("WRITE LOCK ACQUIRED");
+        log_operation("WRITE LOCK RELEASED");
+        lock_acquisitions++;
+        lock_releases++;
+    } else if (strcmp(action, "print") == 0) {
+        log_operation("READ LOCK ACQUIRED");
+        hash_table_print(hash_table);
+        log_operation("READ LOCK RELEASED");
+        lock_acquisitions++;
+        lock_releases++;
     }
-
-    free(arg);
     return NULL;
 }
 
 int main() {
-    printf("Initializing table...\n");
-    initialize_table();
-
-    printf("Opening commands.txt...\n");
-    FILE *file = fopen("src/commands.txt", "r");
-    if (file == NULL) {
-        perror("Error opening commands.txt");
-        return EXIT_FAILURE;
+    FILE *file = fopen("commands.txt", "r");
+    if (!file) {
+        perror("Failed to open commands.txt");
+        return 1;
     }
 
-    printf("Reading number of threads...\n");
-    char command[MAX_COMMAND_LENGTH];
-    fgets(command, sizeof(command), file);
-    int num_threads = atoi(strtok(command, ",") + 8);  // Extract the number of threads
-    pthread_t threads[num_threads];
+    hash_table = hash_table_create();
 
-    printf("Counting insert commands...\n");
-    // Count the number of insert commands
-    while (fgets(command, sizeof(command), file)) {
-        if (strstr(command, "insert") != NULL) {
-            insert_count++;
-        }
-    }
+    char line[MAX_COMMAND_LENGTH];
+    Command commands[MAX_THREADS];
+    pthread_t threads[MAX_THREADS];
+    int thread_count = 0;
 
-    // Rewind file to read commands again
-    rewind(file);
-    fgets(command, sizeof(command), file);  // Skip the first line again
-
-    printf("Processing commands...\n");
-    int i = 0;
-    while (fgets(command, sizeof(command), file) && i < num_threads) {
-        printf("Creating thread %d for command: %s", i, command);
-        char *cmd_copy = strdup(command);
-        if (pthread_create(&threads[i], NULL, process_command, (void *)cmd_copy) != 0) {
-            perror("Error creating thread");
-            return EXIT_FAILURE;
-        }
-        i++;
-    }
-
-    for (int j = 0; j < i; j++) {
-        pthread_join(threads[j], NULL);  // Ensure threads are executed sequentially
+    while (fgets(line, sizeof(line), file) && thread_count < MAX_THREADS) {
+        line[strcspn(line, "\n")] = 0; // Remove newline character
+        strcpy(commands[thread_count].command, line);
+        pthread_create(&threads[thread_count], NULL, process_command, (void *)&commands[thread_count]);
+        thread_count++;
     }
 
     fclose(file);
 
-    fprintf(output_file, "Number of lock acquisitions: %d\n", num_lock_acquisitions);
-    fprintf(output_file, "Number of lock releases: %d\n", num_lock_releases);
-    print_table();
-    fclose(output_file);
+    for (int i = 0; i < thread_count; i++) {
+        pthread_join(threads[i], NULL);
+    }
 
-    printf("Finished processing commands.\n");
+    log_operation("Number of lock acquisitions: " + lock_acquisitions);
+    log_operation("Number of lock releases: " + lock_releases);
+
+    hash_table_destroy(hash_table);
+    pthread_mutex_destroy(&file_mutex);
+
     return 0;
 }

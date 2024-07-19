@@ -21,7 +21,7 @@ This project implements a concurrent hash table using Jenkins's one_at_a_time ha
   - Ensure the locks are used correctly in the hash table functions (insert, delete, search).
 - [ ] **Documentation**: Add detailed comments in the code explaining the functionality of each part. Ensure the code is easy to understand and maintain.
 
-### Member C (Dilly OR Franco)
+### Member C (Franco)
 - [ ] **Main Program (`chash.c`)**:
   - Create the main program file that reads `commands.txt` and processes each command in a separate thread.
   - Use `pthread_t` to handle multiple threads and ensure the commands are processed concurrently.
@@ -31,7 +31,7 @@ This project implements a concurrent hash table using Jenkins's one_at_a_time ha
   - Implement logging of operations, locks, and condition variables to `output.txt`.
   - Ensure the output format matches the assignment requirements.
 
-### Member C (Dilly OR Franco)
+### Member C (Dilly)
 - [ ] **Makefile**: Write a `Makefile` to compile the source files (`hash_table.c`, `locks.c`, `chash.c`) into the `chash` executable. Ensure the Makefile supports modular compilation and handles dependencies correctly.
 - [ ] **Testing & Validation**:
   - Develop a set of test cases to verify the correctness and performance of the hash table.

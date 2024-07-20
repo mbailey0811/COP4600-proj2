@@ -1,59 +1,87 @@
-/*
- Faramarz comment:
- 
- this code is nothing but to test the insert, search, delete and locks functions
- */
-
-
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <pthread.h>
 #include "hash_table.h"
 #include "locks.h"
 
+#define NUM_THREADS 5
 
+void *test_insert() {
+    char *names[] = {"Alice", "Bob", "Charlie", "David", "Eve"};
+    uint32_t salaries[] = {50000, 60000, 70000, 80000, 90000};
 
-void test_insert_search_delete() {
-    // Initialize locks
-    init_locks();
-
-    // Insert entries
-    insert("Alice", 50000);
-    insert("Bob", 60000);
-    insert("Charlie", 70000);
-
-    // Search for entries
-    hashRecord* result = search("Alice");
-    if (result != NULL) {
-        printf("Found: %s, Salary: %u\n", result->name, result->salary);
-    } else {
-        printf("No Record Found for Alice\n");
+    for (int i = 0; i < 5; i++) {
+        insert(names[i], salaries[i]);
+        printf("Inserted: %s with salary %u\n", names[i], salaries[i]);
     }
 
-    result = search("Bob");
-    if (result != NULL) {
-        printf("Found: %s, Salary: %u\n", result->name, result->salary);
-    } else {
-        printf("No Record Found for Bob\n");
+    return NULL;
+}
+
+void *test_search() {
+    char *names[] = {"Alice", "Bob", "Charlie", "David", "Eve"};
+
+    for (int i = 0; i < 5; i++) {
+        hashRecord *record = search(names[i]);
+        if (record) {
+            printf("Found: %s with salary %u\n", record->name, record->salary);
+        } else {
+            printf("No record found for %s\n", names[i]);
+        }
     }
 
-    // Delete an entry
-    delete("Alice");
+    return NULL;
+}
 
-    // Search for deleted entry
-    result = search("Alice");
-    if (result != NULL) {
-        printf("Found: %s, Salary: %u\n", result->name, result->salary);
-    } else {
-        printf("No Record Found for Alice\n");
+void *test_delete() {
+    char *names[] = {"Alice", "Bob", "Charlie", "David", "Eve"};
+
+    for (int i = 0; i < 5; i++) {
+        delete(names[i]);
+        printf("Deleted: %s\n", names[i]);
     }
 
-    // Clean up locks
-    destroy_locks();
+    return NULL;
 }
 
 int main() {
-    test_insert_search_delete();
+    pthread_t threads[NUM_THREADS];
+
+    // Initialize the locks
+    init_locks();
+
+    // Create threads to test insert
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, test_insert, NULL);
+    }
+
+    // Join threads
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    // Create threads to test search
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, test_search, NULL);
+    }
+
+    // Join threads
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    // Create threads to test delete
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, test_delete, NULL);
+    }
+
+    // Join threads
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    // Destroy the locks
+    destroy_locks();
+
     return 0;
 }

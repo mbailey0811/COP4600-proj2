@@ -1,40 +1,70 @@
-#include <pthread.h>
 #include "locks.h"
-#include <stdio.h>
 
-// Define the read-write lock
-pthread_rwlock_t rwlock;
+// Global lock variable
+static rwlock_t lock;
 
-// Initialize the read-write lock
+// Initialize the reader-writer lock
 void init_locks() {
-    pthread_rwlock_init(&rwlock, NULL);
+    lock.readers = 0;
+    lock.writers = 0;
+    lock.waiting_writers = 0;
+    pthread_mutex_init(&lock.mutex, NULL);       // Initialize the mutex
+    pthread_cond_init(&lock.read_cond, NULL);    // Initialize the reader condition variable
+    pthread_cond_init(&lock.write_cond, NULL);   // Initialize the writer condition variable
 }
 
-// Destroy the read-write lock
+// Destroy the reader-writer lock
 void destroy_locks() {
-    pthread_rwlock_destroy(&rwlock);
+    pthread_mutex_destroy(&lock.mutex);          // Destroy the mutex
+    pthread_cond_destroy(&lock.read_cond);       // Destroy the reader condition variable
+    pthread_cond_destroy(&lock.write_cond);      // Destroy the writer condition variable
 }
 
 // Acquire a read lock
 void read_lock() {
-    printf("Read lock acquired\n");
-    pthread_rwlock_rdlock(&rwlock);
+    pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
+    while (lock.writers > 0 || lock.waiting_writers > 0) {
+        // Wait if there are active or waiting writers
+        pthread_cond_wait(&lock.read_cond, &lock.mutex);
+    }
+    lock.readers++;                              // Increment the number of readers
+    pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
 }
 
-// Release the read lock
+// Release a read lock
 void read_unlock() {
-    printf("Read lock released\n");
-    pthread_rwlock_unlock(&rwlock);
+    pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
+    lock.readers--;                              // Decrement the number of readers
+    if (lock.readers == 0 && lock.waiting_writers > 0) {
+        // Signal waiting writers if there are no more readers
+        pthread_cond_signal(&lock.write_cond);
+    }
+    pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
 }
 
 // Acquire a write lock
 void write_lock() {
-    printf("Write lock acquired\n");
-    pthread_rwlock_wrlock(&rwlock);
+    pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
+    lock.waiting_writers++;                      // Increment the number of waiting writers
+    while (lock.readers > 0 || lock.writers > 0) {
+        // Wait if there are active readers or writers
+        pthread_cond_wait(&lock.write_cond, &lock.mutex);
+    }
+    lock.waiting_writers--;                      // Decrement the number of waiting writers
+    lock.writers++;                              // Increment the number of writers
+    pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
 }
 
-// Release the write lock
+// Release a write lock
 void write_unlock() {
-    printf("Write lock released\n");
-    pthread_rwlock_unlock(&rwlock);
+    pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
+    lock.writers--;                              // Decrement the number of writers
+    if (lock.waiting_writers > 0) {
+        // Signal a waiting writer if any
+        pthread_cond_signal(&lock.write_cond);
+    } else {
+        // Otherwise, broadcast to all waiting readers
+        pthread_cond_broadcast(&lock.read_cond);
+    }
+    pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
 }

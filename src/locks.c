@@ -1,7 +1,38 @@
 #include "locks.h"
+#include <time.h>
 
 // Global lock variable
 static rwlock_t lock;
+
+#define OUTPUT_FILE "output.txt"
+
+//Function to get the current timestamp
+long get_time() {
+    time_t seconds = time(NULL);
+    return (long)seconds;
+}
+
+// Function to log lock acquisition
+void log_lock_acquired(const char *lock_type) {
+    long timestamp = get_time();
+    printf("%ld,%s LOCK ACQUIRED\n", timestamp, lock_type);
+    FILE *output_file = fopen(OUTPUT_FILE, "a");
+    if (output_file) {
+        fprintf(output_file, "%ld,%s LOCK ACQUIRED\n", timestamp, lock_type);
+        fclose(output_file);
+    }
+}
+
+// Function to log lock release
+void log_lock_released(const char *lock_type) {
+    long timestamp = get_time();
+    printf("%ld,%s LOCK RELEASED\n", timestamp, lock_type);
+    FILE *output_file = fopen(OUTPUT_FILE, "a");
+    if (output_file) {
+        fprintf(output_file, "%ld,%s LOCK RELEASED\n", timestamp, lock_type);
+        fclose(output_file);
+    }
+}
 
 // Initialize the reader-writer lock
 void init_locks() {
@@ -29,6 +60,7 @@ void read_lock() {
     }
     lock.readers++;                              // Increment the number of readers
     pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
+    log_lock_acquired("READ");
 }
 
 // Release a read lock
@@ -40,6 +72,7 @@ void read_unlock() {
         pthread_cond_signal(&lock.write_cond);
     }
     pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
+    log_lock_released("READ");
 }
 
 // Acquire a write lock
@@ -53,6 +86,7 @@ void write_lock() {
     lock.waiting_writers--;                      // Decrement the number of waiting writers
     lock.writers++;                              // Increment the number of writers
     pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
+    log_lock_acquired("WRITE");
 }
 
 // Release a write lock
@@ -67,4 +101,5 @@ void write_unlock() {
         pthread_cond_broadcast(&lock.read_cond);
     }
     pthread_mutex_unlock(&lock.mutex);           // Release the mutex lock
+    log_lock_released("WRITE");
 }

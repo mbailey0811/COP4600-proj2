@@ -2,6 +2,7 @@
 #define LOCKS_H
 
 #include <pthread.h>
+#include <stdio.h>
 
 typedef struct _rwlock_t {
     int readers;
@@ -19,4 +20,8 @@ void read_unlock();       // Release read lock
 void write_lock();        // Acquire write lock
 void write_unlock();      // Release write lock
 
-#endif
+// Declare logging functions
+void log_lock_acquired(const char *lock_type);
+void log_lock_released(const char *lock_type);
+
+#endif // LOCKS_H

@@ -1,112 +1,137 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <string.h>
 #include "hash_table.h"
 #include "locks.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+#include <time.h>
 
-#define MAX_COMMAND_LENGTH 256
-#define MAX_THREADS 100
+#define MAX_LINE_LENGTH 256
+#define OUTPUT_FILE "output.txt"
 
-typedef struct {
-    char command[MAX_COMMAND_LENGTH];
-} Command;
+// Function to execute commands from a file
+void execute_commands(const char *filename);
 
-HashTable *hash_table;
-pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
-int lock_acquisitions = 0;
-int lock_releases = 0;
-
-void log_operation(const char *operation) {
-    pthread_mutex_lock(&file_mutex);
-    FILE *output = fopen("output.txt", "a");
-    fprintf(output, "%s\n", operation);
-    fclose(output);
-    pthread_mutex_unlock(&file_mutex);
+// Function to get the current timestamp
+long get_timestamp() {
+    time_t seconds = time(NULL);
+    return (long)seconds;
 }
 
-void* process_command(void* arg) {
-    Command *cmd = (Command *)arg;
-    char operation[MAX_COMMAND_LENGTH];
-    char action[MAX_COMMAND_LENGTH], name[MAX_COMMAND_LENGTH];
-    int value, result;
-
-    sscanf(cmd->command, "%[^,],%[^,],%d", action, name, &value);
-
-    if (strcmp(action, "insert") == 0) {
-        unsigned int hash = hash_table_insert(hash_table, name, value);
-        sprintf(operation, "INSERT,%u,%s,%d", hash, name, value);
-        log_operation(operation);
-        log_operation("WRITE LOCK ACQUIRED");
-        log_operation("WRITE LOCK RELEASED");
-        lock_acquisitions++;
-        lock_releases++;
-    } else if (strcmp(action, "search") == 0) {
-        unsigned int hash;
-        if ((hash = hash_table_search(hash_table, name)) != -1) {
-            sprintf(operation, "SEARCH,%s", name);
-            log_operation(operation);
-            sprintf(operation, "%u,%s,%d", hash, name, value);
-            log_operation(operation);
-        }
-        log_operation("READ LOCK ACQUIRED");
-        log_operation("READ LOCK RELEASED");
-        lock_acquisitions++;
-        lock_releases++;
-    } else if (strcmp(action, "delete") == 0) {
-        unsigned int hash = hash_table_delete(hash_table, name);
-        if (hash != -1) {
-            sprintf(operation, "DELETE,%s", name);
-            log_operation(operation);
-            sprintf(operation, "%u,%s,%d", hash, name, value);
-            log_operation(operation);
-        }
-        log_operation("WRITE LOCK ACQUIRED");
-        log_operation("WRITE LOCK RELEASED");
-        lock_acquisitions++;
-        lock_releases++;
-    } else if (strcmp(action, "print") == 0) {
-        log_operation("READ LOCK ACQUIRED");
-        hash_table_print(hash_table);
-        log_operation("READ LOCK RELEASED");
-        lock_acquisitions++;
-        lock_releases++;
-    }
-    return NULL;
-}
-
-int main() {
-    FILE *file = fopen("commands.txt", "r");
-    if (!file) {
-        perror("Failed to open commands.txt");
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <commands_file>\n", argv[0]);
         return 1;
     }
 
-    hash_table = hash_table_create();
+    execute_commands(argv[1]);
+    return 0;
+}
 
-    char line[MAX_COMMAND_LENGTH];
-    Command commands[MAX_THREADS];
-    pthread_t threads[MAX_THREADS];
-    int thread_count = 0;
-
-    while (fgets(line, sizeof(line), file) && thread_count < MAX_THREADS) {
-        line[strcspn(line, "\n")] = 0; // Remove newline character
-        strcpy(commands[thread_count].command, line);
-        pthread_create(&threads[thread_count], NULL, process_command, (void *)&commands[thread_count]);
-        thread_count++;
+void execute_commands(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Unable to open file");
+        exit(EXIT_FAILURE);
     }
+    printf("Opened commands file: %s\n", filename);
+
+    FILE *output_file = fopen(OUTPUT_FILE, "w");
+    if (!output_file) {
+        perror("Unable to open output file");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+    printf("Opened output file: %s\n", OUTPUT_FILE);
+
+    char line[MAX_LINE_LENGTH];
+    int num_threads = 1; // Default value
+
+    // Read the number of threads from the first line
+    if (fgets(line, sizeof(line), file)) {
+        printf("Read line: %s", line);
+        
+        // Adjust sscanf to only capture the number after "threads,"
+        int parsed = sscanf(line, "threads,%d", &num_threads);
+        if (parsed != 1) {
+            fprintf(stderr, "Invalid or missing threads command: %s", line);
+            fclose(file);
+            fclose(output_file);
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Set number of threads to: %d\n", num_threads);
+        fprintf(output_file, "Number of threads set to: %d\n", num_threads);
+        fflush(output_file); // Ensure data is written to the file
+
+        // Initialize hash table with the number of threads if needed
+        // initialize_hash_table(num_threads); // Commented out or removed if not needed
+    } else {
+        fprintf(stderr, "Failed to read the number of threads.\n");
+        fclose(file);
+        fclose(output_file);
+        exit(EXIT_FAILURE);
+    }
+
+    //Initialize the locks
+    init_locks();
+
+    // Process remaining commands
+    while (1) {
+        if (!fgets(line, sizeof(line), file)) {
+            break;
+        }
+        printf("Read line: %s", line);
+        
+        char command[MAX_LINE_LENGTH];
+        char key[MAX_LINE_LENGTH];
+        uint32_t value = 0;  // Initialize value to 0 by default
+        int parsed = sscanf(line, "%[^,],%[^,],%u", command, key, &value);
+        if (parsed < 2) {  // Only require command and key, value is optional
+            printf("Failed to parse line: %s", line);
+            continue;
+        }
+
+        printf("Parsed command: %s, key: %s, value: %u\n", command, key, value);
+
+        long timestamp = get_timestamp();
+        printf("Timestamp: %ld\n", timestamp);
+
+        if (strcmp(command, "insert") == 0) {
+            printf("Inserting: %s with value: %u\n", key, value);
+            insert(key, value);
+            printf("Inserted: %s with value: %u\n", key, value);
+            fprintf(output_file, "%ld,INSERT,%s,%u\n", timestamp, key, value);
+            fflush(output_file); // Ensure data is written to the file
+        } else if (strcmp(command, "delete") == 0) {
+            printf("Deleting: %s\n", key);
+            delete(key);
+            fprintf(output_file, "%ld,DELETE,%s,0\n", timestamp, key);
+            fflush(output_file); // Ensure data is written to the file
+            printf("Deleted: %s\n", key);
+        } else if (strcmp(command, "search") == 0) {
+            printf("Searching: %s\n", key);
+            hashRecord *result = search(key);
+            if (result) {
+                fprintf(output_file, "%ld,SEARCH,%s,%u\n", timestamp, key, result->salary);
+                fflush(output_file); // Ensure data is written to the file
+                printf("Found: %s with value: %u\n", key, result->salary);
+            } else {
+                fprintf(output_file, "%ld,SEARCH,%s,0\n", timestamp, key);
+                fflush(output_file); // Ensure data is written to the file
+                printf("No Record Found for: %s\n", key);
+            }
+        } else {
+            fprintf(output_file, "%ld,UNKNOWN,%s,0\n", timestamp, command);
+            fflush(output_file); // Ensure data is written to the file
+            printf("Unknown command: %s\n", command);
+        }
+    }
+
+    //Destroy the lcoks
+    destroy_locks();
 
     fclose(file);
-
-    for (int i = 0; i < thread_count; i++) {
-        pthread_join(threads[i], NULL);
-    }
-
-    log_operation("Number of lock acquisitions: " + lock_acquisitions);
-    log_operation("Number of lock releases: " + lock_releases);
-
-    hash_table_destroy(hash_table);
-    pthread_mutex_destroy(&file_mutex);
-
-    return 0;
+    fclose(output_file);
+    printf("Finished processing commands.\n");
 }

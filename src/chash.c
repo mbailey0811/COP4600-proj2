@@ -60,8 +60,8 @@ void execute_commands(const char *filename) {
             exit(EXIT_FAILURE);
         }
 
-        printf("Set number of threads to: %d\n", num_threads);
-        fprintf(output_file, "Number of threads set to: %d\n", num_threads);
+        printf("Running %d threads\n", num_threads);
+        fprintf(output_file, "Running %d threads\n", num_threads);
         fflush(output_file); // Ensure data is written to the file
 
         // Initialize hash table with the number of threads if needed

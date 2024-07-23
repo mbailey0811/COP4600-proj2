@@ -7,6 +7,7 @@
 #include <time.h>
 
 #define MAX_LINE_LENGTH 256
+#define INPUT_FILE "commands.txt"
 #define OUTPUT_FILE "output.txt"
 
 // Function to execute commands from a file
@@ -18,6 +19,7 @@ long get_timestamp() {
     return (long)seconds;
 }
 
+//Function to be used as comparator for qsort
 int hashComp(const void *a, const void *b) {
     hashRecord *hashA = *(hashRecord**)a;
     hashRecord *hashB = *(hashRecord**)b;
@@ -70,12 +72,12 @@ void print_table(FILE *output) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <commands_file>\n", argv[0]);
+    if (argc > 1) {
+        fprintf(stderr, "Usage: %s\n CHash is hardcoded to read from commands.txt!\n", argv[0]);
         return 1;
     }
 
-    execute_commands(argv[1]);
+    execute_commands(INPUT_FILE);
 
     //open file again for final table print
     FILE* output = fopen(OUTPUT_FILE, "a");

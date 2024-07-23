@@ -2,6 +2,9 @@
 
 This project implements a concurrent hash table using Jenkins's one_at_a_time hash function. The hash table supports concurrent insert, delete, and search operations using reader-writer locks.
 
+## How to Run
+Simply build using the "make" command to generate the chash executable. To run the executable, simply run chash. It is hardcoded to read from the commands.txt file.
+
 ## AI Use Policy
 AI was used to assist in writing the Makefile for this project. We used AI as a tool to write the Makefile to help us speed up the debugging process and ensure that we were all using the same build command in early development. We believed this was an acceptable use case for the tool because we understand the concept behind it and it is not a concept that was directly taught in class. Thus, using AI for the Makefile does not take away any of our opportunity to practice the concepts we have learned in class.
 

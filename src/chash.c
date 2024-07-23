@@ -18,6 +18,57 @@ long get_timestamp() {
     return (long)seconds;
 }
 
+int hashComp(const void *a, const void *b) {
+    hashRecord *hashA = *(hashRecord**)a;
+    hashRecord *hashB = *(hashRecord**)b;
+
+    if (hashA->hash > hashB->hash) {
+        return 1;
+    } else if (hashA->hash == hashB->hash) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+//Function to print the final hash table
+void print_table(FILE *output) {
+    read_lock();
+
+    //iterate to end of list to count entries
+    int numRecords = 0;
+    hashRecord *temp = get_head();
+    while (temp != NULL) {
+        numRecords++;
+        temp = temp->next;
+    }
+
+    hashRecord **hashArr = malloc(numRecords * sizeof(hashRecord*));
+    if (hashArr == NULL) {
+        //malloc fail
+        read_unlock();
+        return;
+    }
+
+    //copy to array
+    temp = get_head();
+    for (int i=0; i<numRecords; i++) {
+        hashArr[i] = temp;
+        temp = temp->next;
+    }
+
+    //sort by hash to print in hash order
+    qsort(hashArr, numRecords, sizeof(hashRecord*), hashComp);
+
+    for (int i=0; i<numRecords; i++) {
+        fprintf(output, "%u,%s,%u\n", hashArr[i]->hash, hashArr[i]->name, hashArr[i]->salary);
+    }
+
+    //clean up
+    free(hashArr);
+    read_unlock();
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <commands_file>\n", argv[0]);
@@ -25,6 +76,16 @@ int main(int argc, char *argv[]) {
     }
 
     execute_commands(argv[1]);
+
+    FILE* output = fopen(OUTPUT_FILE, "a");
+    if (output == NULL) {
+        printf("Unable to open file");
+        return 1;
+    }
+
+    fprintf(output, "\n");
+    print_table(output);
+    fclose(output);
     return 0;
 }
 

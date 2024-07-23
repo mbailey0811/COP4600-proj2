@@ -1,8 +1,10 @@
 #include "locks.h"
 #include <time.h>
 
-// Global lock variable
+// Global variables
 static rwlock_t lock;
+static int locksAcquired = 0;
+static int locksReleased = 0;
 
 #define OUTPUT_FILE "output.txt"
 
@@ -10,6 +12,16 @@ static rwlock_t lock;
 long get_time() {
     time_t seconds = time(NULL);
     return (long)seconds;
+}
+
+//Function to get total number of locks acquired
+int getLocksAcquired() {
+    return locksAcquired;
+}
+
+//Function to get total number of locks released
+int getLocksReleased() {
+    return locksReleased;
 }
 
 // Function to log lock acquisition
@@ -54,6 +66,7 @@ void destroy_locks() {
 // Acquire a read lock
 void read_lock() {
     pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
+    locksAcquired++;
     while (lock.writers > 0 || lock.waiting_writers > 0) {
         // Wait if there are active or waiting writers
         pthread_cond_wait(&lock.read_cond, &lock.mutex);
@@ -67,6 +80,7 @@ void read_lock() {
 void read_unlock() {
     pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
     lock.readers--;                              // Decrement the number of readers
+    locksReleased++;
     if (lock.readers == 0 && lock.waiting_writers > 0) {
         // Signal waiting writers if there are no more readers
         pthread_cond_signal(&lock.write_cond);
@@ -78,6 +92,7 @@ void read_unlock() {
 // Acquire a write lock
 void write_lock() {
     pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
+    locksAcquired++;
     lock.waiting_writers++;                      // Increment the number of waiting writers
     while (lock.readers > 0 || lock.writers > 0) {
         // Wait if there are active readers or writers
@@ -93,6 +108,7 @@ void write_lock() {
 void write_unlock() {
     pthread_mutex_lock(&lock.mutex);             // Acquire the mutex lock
     lock.writers--;                              // Decrement the number of writers
+    locksReleased++;
     if (lock.waiting_writers > 0) {
         // Signal a waiting writer if any
         pthread_cond_signal(&lock.write_cond);

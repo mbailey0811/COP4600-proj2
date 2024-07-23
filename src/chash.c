@@ -77,6 +77,7 @@ int main(int argc, char *argv[]) {
 
     execute_commands(argv[1]);
 
+    //open file again for final table print
     FILE* output = fopen(OUTPUT_FILE, "a");
     if (output == NULL) {
         printf("Unable to open file");
@@ -84,6 +85,8 @@ int main(int argc, char *argv[]) {
     }
 
     fprintf(output, "\n");
+    fprintf(output, "Number of locks acquisitions: %d\n", getLocksAcquired());
+    fprintf(output, "Number of lock releases: %d\n", getLocksReleased());
     print_table(output);
     fclose(output);
     return 0;

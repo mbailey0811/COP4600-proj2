@@ -19,6 +19,8 @@ void read_lock();         // Acquire read lock
 void read_unlock();       // Release read lock
 void write_lock();        // Acquire write lock
 void write_unlock();      // Release write lock
+int getLocksAcquired();   // Return number of lock acquisitions
+int getLocksReleased();   // Return number of lock releases
 
 // Declare logging functions
 void log_lock_acquired(const char *lock_type);
